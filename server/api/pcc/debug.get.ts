@@ -1,3 +1,5 @@
+import { parse } from 'node-html-parser'
+
 export default defineEventHandler(async () => {
   const today = new Date()
   const future = new Date(today)
@@ -13,18 +15,25 @@ export default defineEventHandler(async () => {
     dateType: 'isSpdt', tenderStartDate: fmt(today), tenderEndDate: fmt(future),
   })
 
-  try {
-    const html = await $fetch<string>(
-      `https://web.pcc.gov.tw/prkms/tender/common/proctrg/readTenderProctrg?${params}`,
-      { responseType: 'text', headers: { 'User-Agent': 'Mozilla/5.0' } }
-    )
-    return {
-      ok: true,
-      htmlLength: html.length,
-      hasData: html.includes('共有'),
-      sample: html.slice(0, 300),
-    }
-  } catch (e: any) {
-    return { ok: false, error: e?.message ?? String(e) }
+  const html = await $fetch<string>(
+    `https://web.pcc.gov.tw/prkms/tender/common/proctrg/readTenderProctrg?${params}`,
+    { responseType: 'text', headers: { 'User-Agent': 'Mozilla/5.0' } }
+  )
+
+  const root = parse(html)
+  const tbodyRows = root.querySelectorAll('table tbody tr')
+  const allTr = root.querySelectorAll('tr')
+  const totalMatch = html.match(/共有[\s\S]*?>\s*([\d,]+)\s*<\/span>\s*筆/)
+
+  // 抓第一個 tbody tr 的 cells 數量和內容
+  const firstRow = tbodyRows[0]
+  const cells = firstRow?.querySelectorAll('td') ?? []
+
+  return {
+    totalMatch: totalMatch?.[1] ?? null,
+    tbodyRowCount: tbodyRows.length,
+    allTrCount: allTr.length,
+    firstRowCellCount: cells.length,
+    firstRowCells: cells.map((c, i) => ({ index: i, text: c.text.trim().slice(0, 50) })),
   }
 })
