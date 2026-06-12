@@ -15,6 +15,7 @@ export default defineEventHandler(async () => {
     const html = await fetchPage(page)
     const { total, items } = parseTenders(html)
 
+    console.log(`[SYNC] page ${page}: total=${total} items=${items.length}`)
     if (items.length === 0) break
 
     const { error } = await supabase.from('tenders').insert(
