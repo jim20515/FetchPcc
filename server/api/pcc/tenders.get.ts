@@ -1,8 +1,17 @@
 import { useSupabase } from '~/server/utils/supabase'
 
+const ALLOWED_SORT_FIELDS = ['publish_date', 'deadline', 'budget', 'agency_name'] as const
+type SortField = typeof ALLOWED_SORT_FIELDS[number]
+
 export default defineEventHandler(async (event) => {
   const url = new URL(event.node.req.url!, 'http://localhost')
   const page = Number(url.searchParams.get('page')) || 1
+  const rawSort = url.searchParams.get('sortField') ?? 'publish_date'
+  const sortField: SortField = ALLOWED_SORT_FIELDS.includes(rawSort as SortField)
+    ? rawSort as SortField
+    : 'publish_date'
+  const sortAsc = url.searchParams.get('sortOrder') === 'asc'
+
   const pageSize = 10
   const from = (page - 1) * pageSize
   const to = from + pageSize - 1
@@ -12,7 +21,7 @@ export default defineEventHandler(async (event) => {
   const { data, error, count } = await supabase
     .from('tenders')
     .select('*', { count: 'exact' })
-    .order('publish_date', { ascending: false })
+    .order(sortField, { ascending: sortAsc })
     .range(from, to)
 
   if (error) {
