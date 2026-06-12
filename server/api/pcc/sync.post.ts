@@ -13,7 +13,7 @@ export default defineEventHandler(async () => {
 
     if (items.length === 0) break
 
-    // upsert：重複的 (tender_no, publish_date) 不重複寫入
+    // upsert：用 detail_url 做唯一鍵，避免重複寫入
     const { error } = await supabase
       .from('tenders')
       .upsert(
@@ -28,7 +28,7 @@ export default defineEventHandler(async () => {
           budget:       i.budget,
           detail_url:   i.detailUrl,
         })),
-        { onConflict: 'tender_no,publish_date', ignoreDuplicates: true }
+        { onConflict: 'detail_url', ignoreDuplicates: true }
       )
 
     if (error) {
