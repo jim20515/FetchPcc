@@ -13,35 +13,45 @@ export default defineEventHandler(async () => {
 
     if (items.length === 0) break
 
-    // 只寫入有 detail_url 的資料，用 upsert 避免重複
-    const rows = items
-      .filter(i => i.detailUrl)
-      .map(i => ({
-        tender_no:    i.tenderNo || null,
-        tender_name:  i.tenderName,
-        agency_name:  i.agencyName,
-        method:       i.method,
-        nature:       i.nature,
-        publish_date: i.publishDate,
-        deadline:     i.deadline,
-        budget:       i.budget,
-        detail_url:   i.detailUrl,
-      }))
-
-    if (rows.length === 0) { page++; continue }
-
-    const { error, count } = await supabase
+    const { error } = await supabase
       .from('tenders')
-      .upsert(rows, { onConflict: 'detail_url', ignoreDuplicates: true })
-      .select('id')
+      .upsert(
+        items.map(i => ({
+          tender_no:    i.tenderNo || null,
+          tender_name:  i.tenderName,
+          agency_name:  i.agencyName,
+          method:       i.method,
+          nature:       i.nature,
+          publish_date: i.publishDate,
+          deadline:     i.deadline,
+          budget:       i.budget,
+          detail_url:   i.detailUrl || null,
+        })),
+        { onConflict: 'detail_url', ignoreDuplicates: true }
+      )
 
     if (error) {
-      console.error('[SYNC] supabase error:', error.message, error.details)
-      break
+      console.error('[SYNC] supabase error:', error.message, error.details, error.hint)
+      // 改用逐筆 insert 避免整批失敗
+      for (const i of items) {
+        const { error: e2 } = await supabase.from('tenders').upsert({
+          tender_no:    i.tenderNo || null,
+          tender_name:  i.tenderName,
+          agency_name:  i.agencyName,
+          method:       i.method,
+          nature:       i.nature,
+          publish_date: i.publishDate,
+          deadline:     i.deadline,
+          budget:       i.budget,
+          detail_url:   i.detailUrl || null,
+        }, { onConflict: 'detail_url', ignoreDuplicates: true })
+        if (!e2) totalSynced++
+        else console.error('[SYNC] row error:', e2.message, JSON.stringify(i).slice(0, 100))
+      }
+    } else {
+      totalSynced += items.length
     }
-    console.log(`[SYNC] page ${page}: inserted ${count ?? rows.length} rows`)
 
-    totalSynced += items.length
     const totalPages = Math.ceil(total / 10)
     hasMore = page < totalPages
     page++
@@ -56,22 +66,14 @@ async function fetchPage(page: number): Promise<string> {
   const future = formatDate(addDays(new Date(), 180))
 
   const params = new URLSearchParams({
-    pageSize: '10',
-    'd-49738-p': String(page),
-    firstSearch: 'false',
-    searchType: 'tpam',
-    isBinding: 'N',
-    isLogIn: 'N',
-    level_1: 'on',
+    pageSize: '10', 'd-49738-p': String(page),
+    firstSearch: 'false', searchType: 'tpam',
+    isBinding: 'N', isLogIn: 'N', level_1: 'on',
     tenderStatus: 'TENDER_STATUS_0',
     tenderWay: 'TENDER_WAY_ALL_DECLARATION',
-    proctrgCode1: '',
-    proctrgCode2: '',
-    radProctrgCate: 'RAD_PROCTRG_CATE_3',
-    proctrgCode3: '50003065',
-    dateType: 'isSpdt',
-    tenderStartDate: today,
-    tenderEndDate: future,
+    proctrgCode1: '', proctrgCode2: '',
+    radProctrgCate: 'RAD_PROCTRG_CATE_3', proctrgCode3: '50003065',
+    dateType: 'isSpdt', tenderStartDate: today, tenderEndDate: future,
   })
 
   return $fetch<string>(
