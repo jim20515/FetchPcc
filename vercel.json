@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/pcc/sync",
+      "schedule": "0 1 * * *"
+    }
+  ]
+}
