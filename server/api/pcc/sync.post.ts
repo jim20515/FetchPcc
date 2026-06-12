@@ -4,8 +4,10 @@ import { useSupabase } from '~/server/utils/supabase'
 export default defineEventHandler(async () => {
   const supabase = useSupabase()
 
+  console.log('[SYNC] start')
   // 先清空舊資料
-  await supabase.from('tenders').delete().neq('id', 0)
+  const { error: delError } = await supabase.from('tenders').delete().neq('id', 0)
+  console.log('[SYNC] delete done, error:', delError?.message ?? 'none')
 
   let totalSynced = 0
   let page = 1
