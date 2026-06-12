@@ -1,0 +1,21 @@
+{
+  "name": "fetch-pcc",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview"
+  },
+  "dependencies": {
+    "node-html-parser": "^6.1.13",
+    "nuxt": "^3.13.0"
+  },
+  "devDependencies": {
+    "@nuxt/devtools": "latest",
+    "@tailwindcss/vite": "^4.3.0",
+    "tailwindcss": "^4.3.0",
+    "typescript": "^5.0.0"
+  }
+}
