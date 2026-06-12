@@ -3,6 +3,10 @@ import { useSupabase } from '~/server/utils/supabase'
 
 export default defineEventHandler(async () => {
   const supabase = useSupabase()
+
+  // 先清空舊資料
+  await supabase.from('tenders').delete().neq('id', 0)
+
   let totalSynced = 0
   let page = 1
   let hasMore = true
@@ -13,45 +17,26 @@ export default defineEventHandler(async () => {
 
     if (items.length === 0) break
 
-    const { error } = await supabase
-      .from('tenders')
-      .upsert(
-        items.map(i => ({
-          tender_no:    i.tenderNo || null,
-          tender_name:  i.tenderName,
-          agency_name:  i.agencyName,
-          method:       i.method,
-          nature:       i.nature,
-          publish_date: i.publishDate,
-          deadline:     i.deadline,
-          budget:       i.budget,
-          detail_url:   i.detailUrl || null,
-        })),
-        { onConflict: 'detail_url', ignoreDuplicates: true }
-      )
+    const { error } = await supabase.from('tenders').insert(
+      items.map(i => ({
+        tender_no:    i.tenderNo || null,
+        tender_name:  i.tenderName,
+        agency_name:  i.agencyName,
+        method:       i.method,
+        nature:       i.nature,
+        publish_date: i.publishDate,
+        deadline:     i.deadline,
+        budget:       i.budget,
+        detail_url:   i.detailUrl || null,
+      }))
+    )
 
     if (error) {
-      console.error('[SYNC] supabase error:', error.message, error.details, error.hint)
-      // 改用逐筆 insert 避免整批失敗
-      for (const i of items) {
-        const { error: e2 } = await supabase.from('tenders').upsert({
-          tender_no:    i.tenderNo || null,
-          tender_name:  i.tenderName,
-          agency_name:  i.agencyName,
-          method:       i.method,
-          nature:       i.nature,
-          publish_date: i.publishDate,
-          deadline:     i.deadline,
-          budget:       i.budget,
-          detail_url:   i.detailUrl || null,
-        }, { onConflict: 'detail_url', ignoreDuplicates: true })
-        if (!e2) totalSynced++
-        else console.error('[SYNC] row error:', e2.message, JSON.stringify(i).slice(0, 100))
-      }
-    } else {
-      totalSynced += items.length
+      console.error('[SYNC] insert error:', error.message)
+      break
     }
 
+    totalSynced += items.length
     const totalPages = Math.ceil(total / 10)
     hasMore = page < totalPages
     page++
