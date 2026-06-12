@@ -13,28 +13,33 @@ export default defineEventHandler(async () => {
 
     if (items.length === 0) break
 
-    // upsert：用 detail_url 做唯一鍵，避免重複寫入
-    const { error } = await supabase
+    // 只寫入有 detail_url 的資料，用 upsert 避免重複
+    const rows = items
+      .filter(i => i.detailUrl)
+      .map(i => ({
+        tender_no:    i.tenderNo || null,
+        tender_name:  i.tenderName,
+        agency_name:  i.agencyName,
+        method:       i.method,
+        nature:       i.nature,
+        publish_date: i.publishDate,
+        deadline:     i.deadline,
+        budget:       i.budget,
+        detail_url:   i.detailUrl,
+      }))
+
+    if (rows.length === 0) { page++; continue }
+
+    const { error, count } = await supabase
       .from('tenders')
-      .upsert(
-        items.map(i => ({
-          tender_no:    i.tenderNo || null,
-          tender_name:  i.tenderName,
-          agency_name:  i.agencyName,
-          method:       i.method,
-          nature:       i.nature,
-          publish_date: i.publishDate,
-          deadline:     i.deadline,
-          budget:       i.budget,
-          detail_url:   i.detailUrl,
-        })),
-        { onConflict: 'detail_url', ignoreDuplicates: true }
-      )
+      .upsert(rows, { onConflict: 'detail_url', ignoreDuplicates: true })
+      .select('id')
 
     if (error) {
-      console.error('[SYNC] supabase error:', error.message)
+      console.error('[SYNC] supabase error:', error.message, error.details)
       break
     }
+    console.log(`[SYNC] page ${page}: inserted ${count ?? rows.length} rows`)
 
     totalSynced += items.length
     const totalPages = Math.ceil(total / 10)
